@@ -1,0 +1,48 @@
+name: catatan-tugas-ryan
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "80:8000"
+    environment:
+      APP_SECRET: ${APP_SECRET:?Isi APP_SECRET di .env}
+      APP_USER: ${APP_USER:-ryan}
+      APP_PASSWORD: ${APP_PASSWORD:?Isi APP_PASSWORD di .env}
+      DB_HOST: database
+      DB_NAME: ${DB_NAME:-catatan_tugas}
+      DB_USER: ${DB_USER:-catatan}
+      DB_PASSWORD: ${DB_PASSWORD:?Isi DB_PASSWORD di .env}
+    depends_on:
+      database:
+        condition: service_healthy
+    networks: [frontend, backend]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+  database:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-catatan_tugas}
+      POSTGRES_USER: ${DB_USER:-catatan}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Isi DB_PASSWORD di .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+networks:
+  frontend:
+  backend:
+    internal: true
+volumes:
+  postgres_data:
